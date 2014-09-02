@@ -9,7 +9,7 @@
 #include <xbee.h>
 #include <MQTTClient.h>
 
-#define XBEE2MQTT_VERSION "v0.1"
+#define XBEE2MQTT_VERSION "v0.2"
 #define TRUE 1
 #define FALSE 0
 
@@ -18,6 +18,9 @@
 #define TOPIC		"xbee"
 #define QOS		1
 #define TIMEOUT		10000L
+#define XBEE_TYPE	"xbeeZB"
+#define XBEE_DEVICE	"/dev/xbee"
+#define XBEE_BAUDRATE	57600
 
 typedef struct stXBeeClient {
     char name[21];
@@ -71,22 +74,11 @@ char* getName(struct xbee_conAddress address) {
 }
 
 void xbee_packetreceived(struct xbee *xbee, struct xbee_con *con, struct xbee_pkt **pkt, void **data) {
-    char senderName[21];
-    int i;
-
     if ((*pkt)->dataLen == 0) {
 	printf("Received xbee packet was too short\n");
 	return;
     }
-    senderName[0] = '\0';
-    for (i=0;i<cntClients;i++) {
-	if ((xbeeclients[i].addr16[0] == (*pkt)->address.addr16[0]) &&
-	    (xbeeclients[i].addr16[1] == (*pkt)->address.addr16[1])) {
-	    strcpy(&(senderName[0]), &(xbeeclients[i].name[0]));
-	    break;
-	}
-    }
-    printf("rx [%s] - %s: [%s] (%d)\n", senderName, getName((*pkt)->address), ((*pkt)->data), (*pkt)->dataLen);
+    printf("rx [%s]: [%s] (%d)\n", getName((*pkt)->address), ((*pkt)->data), (*pkt)->dataLen);
 
     sprintf(payload, "%s: %s\n", localName, ((*pkt)->data));
     pubmsg.payload = payload;
@@ -169,7 +161,7 @@ int mqtt_msgarrvd(void *context, char *topicName, int topicLen, MQTTClient_messa
 int init_system() {
     strcpy(localName, "NoName");
 
-    if ((ret = xbee_setup(&xbee, "xbeeZB", "/dev/xbee", 57600)) != XBEE_ENONE) {
+    if ((ret = xbee_setup(&xbee, XBEE_TYPE, XBEE_DEVICE, XBEE_BAUDRATE)) != XBEE_ENONE) {
 	printf("Couldn't connect to XBee: %d (%s)\n", ret, xbee_errorToStr(ret));
 	exit(1);
     }
@@ -195,7 +187,7 @@ int init_system() {
     }
 
     if ((ret = xbee_conNew(xbee, &con_at, "Local AT", NULL)) != XBEE_ENONE) {
-	printf("Couldn't create a xbee AT connection: %d (%s)\n", ret, xbee_errorToStr(ret));
+	printf("Couldn't create a xbee control connection: %d (%s)\n", ret, xbee_errorToStr(ret));
 	exit(2);
     }
 
@@ -209,7 +201,7 @@ int init_system() {
     }
 
     if ((ret = xbee_conCallbackSet(con_at, xbee_atpacketreceived, NULL)) != XBEE_ENONE) {
-	printf("Couldn't setup the xbee AT callback function: %d (%s)\n", ret, xbee_errorToStr(ret));
+	printf("Couldn't setup the xbee control callback function: %d (%s)\n", ret, xbee_errorToStr(ret));
 	exit(3);
     }
 
@@ -240,10 +232,14 @@ int free_system() {
 	printf("Couldn't end the xbee connection: %d (%s)\n", ret, xbee_errorToStr(ret));
 	return ret;
     }
+    if ((ret = xbee_conEnd(con_at)) != XBEE_ENONE) {
+	printf("Couldn't end the xbee control connection: %d (%s)\n", ret, xbee_errorToStr(ret));
+	return ret;
+    }
     xbee_shutdown(xbee);
 
     MQTTClient_unsubscribe(client, TOPIC);
-    MQTTClient_disconnect(client, 10000);
+    MQTTClient_disconnect(client, TIMEOUT);
     MQTTClient_destroy(&client);
 
     return TRUE;
