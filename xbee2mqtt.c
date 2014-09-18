@@ -57,7 +57,11 @@ char* getName(struct xbee_conAddress address) {
 	    if ((xbeeclients[i].addr64[0] == address.addr64[0]) &&
 		(xbeeclients[i].addr64[1] == address.addr64[1]) &&
 		(xbeeclients[i].addr64[2] == address.addr64[2]) &&
-		(xbeeclients[i].addr64[3] == address.addr64[3])) {
+		(xbeeclients[i].addr64[3] == address.addr64[3]) &&
+		(xbeeclients[i].addr64[4] == address.addr64[4]) &&
+		(xbeeclients[i].addr64[5] == address.addr64[5]) &&
+		(xbeeclients[i].addr64[6] == address.addr64[6]) &&
+		(xbeeclients[i].addr64[7] == address.addr64[7])) {
 		strcpy(temp, &(xbeeclients[i].name[0]));
 		return temp;
 	    }
@@ -118,7 +122,7 @@ void xbee_atpacketreceived(struct xbee *xbee, struct xbee_con *con, struct xbee_
 	    printf("%02X", xbeeclients[cntClients-1].addr16[i]);
 	}
 	printf("  0x");
-	for (i=0; i<7; i++) {
+	for (i=0; i<8; i++) {
 	    printf("%02X", xbeeclients[cntClients-1].addr64[i]);
 	    if (i==3) printf(" 0x");
 	}
@@ -167,7 +171,7 @@ int init_system() {
     }
 
     xbee_logTargetSet(xbee, stderr);
-//    xbee_logLevelSet(xbee, 100);
+    xbee_logLevelSet(xbee, 100);
     xbee_log(xbee, -1, "Start logging...");
 
     memset(&xbee_address, 0, sizeof(xbee_address));
